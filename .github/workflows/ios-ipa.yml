@@ -18,7 +18,8 @@ jobs:
           which cmake || brew install cmake
           rustup toolchain install 1.94 --profile minimal || true
           rustup target add --toolchain 1.94 aarch64-apple-ios aarch64-apple-ios-sim || true
-          rustc --version || true
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+          rustup target list --installed
 
       - name: Prepare deps
         env:
