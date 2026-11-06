@@ -1,0 +1,53 @@
+name: ios-ipa
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+          which xcodegen || brew install xcodegen
+          which cmake || brew install cmake
+          rustup toolchain install 1.94 --profile minimal || true
+          rustup target add --toolchain 1.94 aarch64-apple-ios aarch64-apple-ios-sim || true
+          rustc --version || true
+
+      - name: Prepare deps
+        env:
+          CMAKE_BIN: /opt/homebrew/bin/cmake
+        run: |
+          set -euo pipefail
+          chmod +x scripts/*.sh
+          scripts/prepare-openssl-ios.sh
+          scripts/prepare-libssh2-ios.sh
+          scripts/prepare-libgit2-ios.sh
+          scripts/prepare-rish-ios.sh
+          scripts/prepare-rish-agent-core.sh
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          apps/gpui/scripts/build-ios.sh --device --release
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          APP="apps/gpui/build/ios-device/Build/Products/Release-iphoneos/RishGPUI.app"
+          ls -d "$APP"
+          rm -rf out && mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          cd out && zip -qry ../rish-unsigned.ipa Payload
+          cd .. && ls -lh rish-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rish-unsigned-ipa
+          path: rish-unsigned.ipa
